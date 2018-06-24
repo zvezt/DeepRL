@@ -48,19 +48,6 @@ class BaseAgent:
         self.config.logger.info('evaluation episode return: %f(%f)' % (
             np.mean(rewards), np.std(rewards) / np.sqrt(len(rewards))))
 
-    def evaluate(self, steps=1):
-        config = self.config
-        if config.evaluation_env is None or self.config.evaluation_episodes_interval:
-            return
-        for _ in range(steps):
-            action = self.evaluation_action(self.evaluation_state)
-            self.evaluation_state, reward, done, _ = self.eval_env.step(action)
-            self.evaluation_return += reward
-            if done:
-                self.evaluation_state = self.eval_env.reset()
-                self.config.logger.info('evaluation episode return: %f' % (self.evaluation_return))
-                self.evaluation_return = 0
-
 class BaseActor(mp.Process):
     STEP = 0
     RESET = 1
@@ -85,6 +72,7 @@ class BaseActor(mp.Process):
         seed = np.random.randint(0, sys.maxsize)
         self._task = config.task_fn()
         self._network = config.network_fn()
+        self._network.to(Config.DEVICE)
         self._task.seed(seed)
         cache = deque([], maxlen=config.cache_len)
         while True:

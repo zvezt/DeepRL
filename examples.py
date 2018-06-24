@@ -19,6 +19,7 @@ def dqn_cart_pole():
     # config.network_fn = lambda state_dim, action_dim: DuelingNet(action_dim, FCBody(state_dim))
     config.random_action_prob = LinearSchedule(1.0, 0.1, 1e4)
     config.replay_fn = lambda: Replay(memory_size=10000, batch_size=10)
+    # config.replay_fn = lambda: AsyncReplay(memory_size=10000, batch_size=10)
     config.discount = 0.99
     config.target_network_update_freq = 200
     config.exploration_steps = 1000
@@ -26,7 +27,8 @@ def dqn_cart_pole():
     # config.double_q = True
     config.double_q = False
     config.sgd_update_frequency = 4
-    config.cache_len = config.sgd_update_frequency * 2
+    config.cache_len = 1
+    # config.cache_len = config.sgd_update_frequency * 2
     config.eval_interval = int(1e4)
     config.log_interval = int(1e3)
     config.max_steps = 1e6
@@ -425,7 +427,8 @@ if __name__ == '__main__':
     mkdir('dataset')
     mkdir('log')
     set_one_thread()
-    select_device(-1)
+    # select_device(-1)
+    select_device(0)
 
     dqn_cart_pole()
     # a2c_cart_pole()
