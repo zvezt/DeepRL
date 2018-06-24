@@ -61,11 +61,25 @@ class Config:
         self.num_mini_batches = 32
         self.test_interval = 0
         self.test_repetitions = 10
-        self.evaluation_env = None
+        self.__eval_env = None
         self.termination_regularizer = 0
-        self.evaluation_episodes_interval = 0
-        self.evaluation_episodes = 0
         self.sgd_update_frequency = 4
+
+        self.log_interval = int(1e3)
+        self.save_interval = int(1e5)
+        self.eval_interval = 0
+        self.evaluation_episodes = 10
+
+    @property
+    def eval_env(self):
+        return self.__eval_env
+
+    @eval_env.setter
+    def eval_env(self, env):
+        self.__eval_env = env
+        self.state_dim = env.state_dim
+        self.action_dim = env.action_dim
+        self.task_name = env.name
 
     def add_argument(self, *args, **kwargs):
         self.parser.add_argument(*args, **kwargs)

@@ -12,13 +12,10 @@ class VanillaNet(nn.Module, BaseNet):
         super(VanillaNet, self).__init__()
         self.fc_head = layer_init(nn.Linear(body.feature_dim, output_dim))
         self.body = body
-        self.to(Config.DEVICE)
 
-    def predict(self, x, to_numpy=False):
+    def forward(self, x):
         phi = self.body(tensor(x))
         y = self.fc_head(phi)
-        if to_numpy:
-            y = y.cpu().detach().numpy()
         return y
 
 class DuelingNet(nn.Module, BaseNet):

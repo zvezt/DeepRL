@@ -11,20 +11,26 @@ from deep_rl import *
 def dqn_cart_pole():
     game = 'CartPole-v0'
     config = Config()
-    config.task_fn = lambda: ClassicalControl(game, max_steps=200)
-    config.evaluation_env = config.task_fn()
+    config.task_fn = lambda log_dir=None: ClassicalControl(game, max_steps=200, log_dir=log_dir)
+    config.eval_env = config.task_fn()
+
     config.optimizer_fn = lambda params: torch.optim.RMSprop(params, 0.001)
-    config.network_fn = lambda state_dim, action_dim: VanillaNet(action_dim, FCBody(state_dim))
+    config.network_fn = lambda : VanillaNet(config.action_dim, FCBody(config.state_dim))
     # config.network_fn = lambda state_dim, action_dim: DuelingNet(action_dim, FCBody(state_dim))
-    config.policy_fn = lambda: GreedyPolicy(LinearSchedule(1.0, 0.1, 1e4))
+    config.random_action_prob = LinearSchedule(1.0, 0.1, 1e4)
     config.replay_fn = lambda: Replay(memory_size=10000, batch_size=10)
     config.discount = 0.99
     config.target_network_update_freq = 200
     config.exploration_steps = 1000
     config.logger = get_logger()
-    config.double_q = True
-    # config.double_q = False
-    run_episodes(DQNAgent(config))
+    # config.double_q = True
+    config.double_q = False
+    config.sgd_update_frequency = 4
+    config.cache_len = config.sgd_update_frequency * 2
+    config.eval_interval = int(1e4)
+    config.log_interval = int(1e3)
+    config.max_steps = 1e6
+    run_steps(DQNAgent(config))
 
 def a2c_cart_pole():
     config = Config()
@@ -419,9 +425,9 @@ if __name__ == '__main__':
     mkdir('dataset')
     mkdir('log')
     set_one_thread()
-    select_device(0)
+    select_device(-1)
 
-    # dqn_cart_pole()
+    dqn_cart_pole()
     # a2c_cart_pole()
     # categorical_dqn_cart_pole()
     # quantile_regression_dqn_cart_pole()

@@ -22,10 +22,13 @@ def tensor(x):
     return x
 
 def range_tensor(end):
-    return torch.arange(end).to(Config.DEVICE)
+    return torch.arange(end).long().to(Config.DEVICE)
 
 def to_np(t):
     return t.cpu().detach().numpy()
+
+def torch_max(x, dim):
+    return torch.max(x, dim=dim)[0]
 
 def random_seed():
     np.random.seed()
