@@ -7,9 +7,10 @@
 import torch
 import numpy as np
 import torch.multiprocessing as mp
-from ..utils import *
 from collections import deque
 import sys
+from ..utils import *
+import copy
 
 class BaseAgent:
     def __init__(self, config):
@@ -53,44 +54,40 @@ class BaseActor(mp.Process):
     RESET = 1
     EXIT = 2
     SPECS = 3
-    SRC_NET = 4
+    NETWORK = 4
 
-    def __init__(self, config, master_network):
+    def __init__(self, config):
         mp.Process.__init__(self)
         self.config = config
         self.__pipe, self.__worker_pipe = mp.Pipe()
-        self.__master_network = master_network
 
         self._state = None
-        self._network = None
         self._task = None
+        self._network = None
         self._total_steps = 0
 
     def run(self):
+        torch.cuda.is_available()
         config = self.config
         random_seed()
         seed = np.random.randint(0, sys.maxsize)
         self._task = config.task_fn()
-        self._network = config.network_fn()
-        self._network.to(Config.DEVICE)
         self._task.seed(seed)
         cache = deque([], maxlen=config.cache_len)
         while True:
             op, data = self.__worker_pipe.recv()
             if op == self.STEP:
-                if not self._total_steps % config.cache_len:
-                    self._network.load_state_dict(self.__master_network.state_dict())
                 if len(cache) == 0:
                     cache.append(self._transition())
-                    self._total_steps += 1
                 self.__worker_pipe.send(cache.popleft())
                 while len(cache) < config.cache_len:
                     cache.append(self._transition())
-                    self._total_steps += 1
             elif op == self.EXIT:
                 close_obj(self._task)
                 self.__worker_pipe.close()
                 return
+            elif op == self.NETWORK:
+                self._network = data
             else:
                 raise Exception('Unknown command')
 
@@ -104,3 +101,6 @@ class BaseActor(mp.Process):
     def close(self):
         self.__pipe.send([self.EXIT, None])
         self.__pipe.close()
+
+    def set_network(self, net):
+        self.__pipe.send([self.NETWORK, net])

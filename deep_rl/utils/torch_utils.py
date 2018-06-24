@@ -34,6 +34,12 @@ def random_seed():
     np.random.seed()
     torch.manual_seed(np.random.randint(int(1e6)))
 
+def layer_init(layer, w_scale=1.0):
+    torch.nn.init.orthogonal_(layer.weight.data)
+    layer.weight.data.mul_(w_scale)
+    torch.nn.init.constant_(layer.bias.data, 0)
+    return layer
+
 def set_one_thread():
     os.environ['OMP_NUM_THREADS'] = '1'
     os.environ['MKL_NUM_THREADS'] = '1'

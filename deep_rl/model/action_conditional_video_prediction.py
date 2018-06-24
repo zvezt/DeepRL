@@ -15,7 +15,7 @@ from ..utils import *
 from tqdm import tqdm
 from ..network import *
 
-class Network(nn.Module, BaseNet):
+class Network(nn.Module):
     def __init__(self, num_actions, gpu=0):
         super(Network, self).__init__()
 

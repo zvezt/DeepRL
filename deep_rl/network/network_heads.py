@@ -4,12 +4,13 @@
 # declaration at the top                                              #
 #######################################################################
 
-from .network_utils import *
 from .network_bodies import *
+from ..utils import *
 
-class VanillaNet(nn.Module, BaseNet):
-    def __init__(self, output_dim, body):
+class VanillaNet(nn.Module):
+    def __init__(self, output_dim, body_fn):
         super(VanillaNet, self).__init__()
+        body = body_fn()
         self.fc_head = layer_init(nn.Linear(body.feature_dim, output_dim))
         self.body = body
 
@@ -18,7 +19,7 @@ class VanillaNet(nn.Module, BaseNet):
         y = self.fc_head(phi)
         return y
 
-class DuelingNet(nn.Module, BaseNet):
+class DuelingNet(nn.Module):
     def __init__(self, action_dim, body):
         super(DuelingNet, self).__init__()
         self.fc_value = layer_init(nn.Linear(body.feature_dim, 1))
@@ -35,7 +36,7 @@ class DuelingNet(nn.Module, BaseNet):
             return q.cpu().detach().numpy()
         return q
 
-class CategoricalNet(nn.Module, BaseNet):
+class CategoricalNet(nn.Module):
     def __init__(self, action_dim, num_atoms, body):
         super(CategoricalNet, self).__init__()
         self.fc_categorical = layer_init(nn.Linear(body.feature_dim, action_dim * num_atoms))
@@ -52,7 +53,7 @@ class CategoricalNet(nn.Module, BaseNet):
             return prob.cpu().detach().numpy()
         return prob
 
-class QuantileNet(nn.Module, BaseNet):
+class QuantileNet(nn.Module):
     def __init__(self, action_dim, num_quantiles, body):
         super(QuantileNet, self).__init__()
         self.fc_quantiles = layer_init(nn.Linear(body.feature_dim, action_dim * num_quantiles))
@@ -69,7 +70,7 @@ class QuantileNet(nn.Module, BaseNet):
             quantiles = quantiles.cpu().detach().numpy()
         return quantiles
 
-class OptionCriticNet(nn.Module, BaseNet):
+class OptionCriticNet(nn.Module):
     def __init__(self, body, action_dim, num_options):
         super(OptionCriticNet, self).__init__()
         self.fc_q = layer_init(nn.Linear(body.feature_dim, num_options))
@@ -105,7 +106,7 @@ class ActorCriticNet(nn.Module):
         self.critic_params = list(self.critic_body.parameters()) + list(self.fc_critic.parameters())
         self.phi_params = list(self.phi_body.parameters())
 
-class DeterministicActorCriticNet(nn.Module, BaseNet):
+class DeterministicActorCriticNet(nn.Module):
     def __init__(self,
                  state_dim,
                  action_dim,
@@ -137,7 +138,7 @@ class DeterministicActorCriticNet(nn.Module, BaseNet):
     def critic(self, phi, a):
         return self.network.fc_critic(self.network.critic_body(phi, a))
 
-class GaussianActorCriticNet(nn.Module, BaseNet):
+class GaussianActorCriticNet(nn.Module):
     def __init__(self,
                  state_dim,
                  action_dim,
@@ -165,7 +166,7 @@ class GaussianActorCriticNet(nn.Module, BaseNet):
         log_prob = torch.sum(log_prob, dim=1, keepdim=True)
         return action, log_prob, tensor(np.zeros((log_prob.size(0), 1))), v
 
-class CategoricalActorCriticNet(nn.Module, BaseNet):
+class CategoricalActorCriticNet(nn.Module):
     def __init__(self,
                  state_dim,
                  action_dim,

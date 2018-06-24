@@ -5,21 +5,22 @@
 #######################################################################
 
 from deep_rl import *
+from functools import partial
 
 ## cart pole
 
 def dqn_cart_pole():
     game = 'CartPole-v0'
     config = Config()
-    config.task_fn = lambda log_dir=None: ClassicalControl(game, max_steps=200, log_dir=log_dir)
+    config.task_fn = partial(ClassicalControl, name=game, max_steps=200)
     config.eval_env = config.task_fn()
 
-    config.optimizer_fn = lambda params: torch.optim.RMSprop(params, 0.001)
-    config.network_fn = lambda : VanillaNet(config.action_dim, FCBody(config.state_dim))
-    # config.network_fn = lambda state_dim, action_dim: DuelingNet(action_dim, FCBody(state_dim))
+    config.optimizer_fn = partial(torch.optim.RMSprop, lr=0.001)
+    config.network_fn = partial(VanillaNet, output_dim=config.action_dim,
+                                body_fn=partial(FCBody, state_dim=config.state_dim))
     config.random_action_prob = LinearSchedule(1.0, 0.1, 1e4)
-    config.replay_fn = lambda: Replay(memory_size=10000, batch_size=10)
-    # config.replay_fn = lambda: AsyncReplay(memory_size=10000, batch_size=10)
+    # config.replay_fn = partial(Replay, memory_size=10000, batch_size=10)
+    config.replay_fn = partial(AsyncReplay, memory_size=10000, batch_size=10)
     config.discount = 0.99
     config.target_network_update_freq = 200
     config.exploration_steps = 1000
@@ -27,11 +28,11 @@ def dqn_cart_pole():
     # config.double_q = True
     config.double_q = False
     config.sgd_update_frequency = 4
-    config.cache_len = 1
-    # config.cache_len = config.sgd_update_frequency * 2
+    # config.cache_len = 1
+    config.cache_len = config.sgd_update_frequency * 2
     config.eval_interval = int(1e4)
     config.log_interval = int(1e3)
-    config.max_steps = 1e6
+    config.max_steps = 5e4
     run_steps(DQNAgent(config))
 
 def a2c_cart_pole():
@@ -147,23 +148,33 @@ def option_critic_cart_pole():
 def dqn_pixel_atari(name):
     config = Config()
     config.history_length = 4
-    config.task_fn = lambda: PixelAtari(name, frame_skip=4, history_length=config.history_length,
-                                        log_dir=get_default_log_dir(dqn_pixel_atari.__name__))
-    config.optimizer_fn = lambda params: torch.optim.RMSprop(params, lr=0.00025, alpha=0.95, eps=0.01)
-    config.network_fn = lambda state_dim, action_dim: VanillaNet(action_dim, NatureConvBody())
-    # config.network_fn = lambda state_dim, action_dim: DuelingNet(action_dim, NatureConvBody())
-    config.policy_fn = lambda: GreedyPolicy(LinearSchedule(1.0, 0.1, 1e6))
-    config.replay_fn = lambda: Replay(memory_size=int(1e6), batch_size=32)
-    # config.replay_fn = lambda: AsyncReplay(memory_size=int(1e6), batch_size=32)
+
+    task_fn = partial(PixelAtari, name=name, frame_skip=4, history_length=config.history_length)
+    config.task_fn = partial(task_fn, log_dir=get_default_log_dir(dqn_pixel_atari.__name__))
+    config.eval_env = task_fn()
+
+    config.optimizer_fn = partial(torch.optim.RMSprop, lr=0.00025, alpha=0.95, eps=0.01)
+    config.network_fn = partial(VanillaNet, output_dim=config.action_dim,
+                                body_fn=partial(NatureConvBody, in_channels=config.history_length))
+    config.random_action_prob = LinearSchedule(1.0, 0.1, 1e6)
+    # config.replay_fn = partial(Replay, memory_size=int(1e6), batch_size=32)
+    config.replay_fn = partial(AsyncReplay, memory_size=int(1e6), batch_size=32)
     config.state_normalizer = ImageNormalizer()
     config.reward_normalizer = SignNormalizer()
     config.discount = 0.99
     config.target_network_update_freq = 10000
-    config.exploration_steps= 50000
+    # config.exploration_steps= 50000
+    config.exploration_steps= 100
     config.logger = get_logger()
     # config.double_q = True
     config.double_q = False
-    run_episodes(DQNAgent(config))
+    config.sgd_update_frequency = 4
+    # config.cache_len = 1
+    config.cache_len = config.sgd_update_frequency * 2
+    config.eval_interval = 0
+    config.log_interval = int(1e3)
+    config.max_steps = 4e7
+    run_steps(DQNAgent(config))
 
 def a2c_pixel_atari(name):
     config = Config()
@@ -430,7 +441,7 @@ if __name__ == '__main__':
     # select_device(-1)
     select_device(0)
 
-    dqn_cart_pole()
+    # dqn_cart_pole()
     # a2c_cart_pole()
     # categorical_dqn_cart_pole()
     # quantile_regression_dqn_cart_pole()
@@ -438,7 +449,9 @@ if __name__ == '__main__':
     # ppo_cart_pole()
     # option_critic_cart_pole()
 
-    # dqn_pixel_atari('BreakoutNoFrameskip-v4')
+    # game = 'BreakoutNoFrameskip-v4'
+    game = 'PongNoFrameskip-v4'
+    dqn_pixel_atari(game)
     # a2c_pixel_atari('BreakoutNoFrameskip-v4')
     # categorical_dqn_pixel_atari('BreakoutNoFrameskip-v4')
     # quantile_regression_dqn_pixel_atari('BreakoutNoFrameskip-v4')

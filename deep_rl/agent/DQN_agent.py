@@ -11,15 +11,17 @@ import time
 from .BaseAgent import *
 
 class DQNActor(BaseActor):
-    def __init__(self, config, master_network):
-        BaseActor.__init__(self, config, master_network)
+    def __init__(self, config):
+        BaseActor.__init__(self, config)
         self.config = config
+        self.start()
 
     def _transition(self):
         if self._state is None:
             self._state = self._task.reset()
         config = self.config
-        q_values = self._network(config.state_normalizer(np.stack([self._state])))
+        with config.lock:
+            q_values = self._network(config.state_normalizer(np.stack([self._state])))
         q_values = to_np(q_values).flatten()
         if self._total_steps < config.exploration_steps \
                 or np.random.rand() < config.random_action_prob():
@@ -28,6 +30,7 @@ class DQNActor(BaseActor):
             action = np.argmax(q_values)
         next_state, reward, done, info = self._task.step(action)
         entry = [self._state, action, reward, next_state, done, info]
+        self._total_steps += 1
         if done:
             next_state = self._task.reset()
         self._state = next_state
@@ -37,19 +40,19 @@ class DQNAgent(BaseAgent):
     def __init__(self, config):
         BaseAgent.__init__(self, config)
         self.config = config
+        config.lock = mp.Lock()
+
+        self.replay = config.replay_fn()
+        self.actor = DQNActor(config)
 
         self.network = config.network_fn()
         self.network.share_memory()
         self.target_network = config.network_fn()
         self.target_network.load_state_dict(self.network.state_dict())
         self.optimizer = config.optimizer_fn(self.network.parameters())
-
-        self.replay = config.replay_fn()
-        self.actor = DQNActor(config, self.network)
-        self.actor.start()
-
         self.network.to(Config.DEVICE)
         self.target_network.to(Config.DEVICE)
+        self.actor.set_network(self.network)
 
         self.episode_reward = 0
         self.episode_rewards = []
@@ -102,7 +105,8 @@ class DQNAgent(BaseAgent):
             self.optimizer.zero_grad()
             loss.backward()
             nn.utils.clip_grad_norm_(self.network.parameters(), self.config.gradient_clip)
-            self.optimizer.step()
+            with config.lock:
+                self.optimizer.step()
 
         if self.total_steps % self.config.target_network_update_freq == 0:
             self.target_network.load_state_dict(self.network.state_dict())

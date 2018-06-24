@@ -4,7 +4,11 @@
 # declaration at the top                                              #
 #######################################################################
 
-from .network_utils import *
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import numpy as np
+from ..utils import *
 
 class NatureConvBody(nn.Module):
     def __init__(self, in_channels=4):
