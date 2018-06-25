@@ -63,7 +63,7 @@ def run_steps(agent):
         if config.log_interval and not agent.total_steps % config.log_interval and len(agent.episode_rewards):
             rewards = agent.episode_rewards
             agent.episode_rewards = []
-            config.logger.info('total steps %d, returns %f/%f/%f/%f (mean/median/min/max), %f steps/s' % (
+            config.logger.info('total steps %d, returns %.2f/%.2f/%.2f/%.2f (mean/median/min/max), %.2f steps/s' % (
                 agent.total_steps, np.mean(rewards), np.median(rewards), np.min(rewards), np.max(rewards),
                 config.log_interval / (time.time() - t0)))
             t0 = time.time()

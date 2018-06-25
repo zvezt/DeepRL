@@ -55,6 +55,7 @@ class BaseActor(mp.Process):
     EXIT = 2
     SPECS = 3
     NETWORK = 4
+    CACHE = 5
 
     def __init__(self, config):
         mp.Process.__init__(self)
@@ -80,6 +81,7 @@ class BaseActor(mp.Process):
                 if len(cache) == 0:
                     cache.append(self._transition())
                 self.__worker_pipe.send(cache.popleft())
+            elif op == self.CACHE:
                 while len(cache) < config.cache_len:
                     cache.append(self._transition())
             elif op == self.EXIT:
@@ -104,3 +106,6 @@ class BaseActor(mp.Process):
 
     def set_network(self, net):
         self.__pipe.send([self.NETWORK, net])
+
+    def cache(self):
+        self.__pipe.send([self.CACHE, None])

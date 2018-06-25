@@ -58,6 +58,7 @@ class DQNAgent(BaseAgent):
         self.episode_rewards = []
 
         self.total_steps = 0
+        self.batch_indices = range_tensor(self.replay.batch_size)
 
     def close(self):
         close_obj(self.replay)
@@ -72,6 +73,7 @@ class DQNAgent(BaseAgent):
         return action
 
     def step(self):
+        t0 = time.time()
         config = self.config
         state, action, reward, next_state, done, _ = self.actor.step()
         self.episode_reward += reward
@@ -80,10 +82,13 @@ class DQNAgent(BaseAgent):
         if done:
             self.episode_rewards.append(self.episode_reward)
             self.episode_reward = 0
+        t1 = time.time()
         self.replay.feed([state, action ,reward, next_state, int(done)])
+        t2 = time.time()
 
         if self.total_steps > self.config.exploration_steps \
                 and self.total_steps % self.config.sgd_update_frequency == 0:
+            self.actor.cache()
             experiences = self.replay.sample()
             states, actions, rewards, next_states, terminals = experiences
             states = self.config.state_normalizer(states)
@@ -91,7 +96,7 @@ class DQNAgent(BaseAgent):
             q_next = self.target_network(next_states).detach()
             if self.config.double_q:
                 best_actions = torch.argmax(self.network(next_states), dim=-1)
-                q_next = q_next[range_tensor(q_next.size(0)), best_actions]
+                q_next = q_next[self.batch_indices, best_actions]
             else:
                 q_next = torch_max(q_next, 1)
             terminals = tensor(terminals)
@@ -100,7 +105,7 @@ class DQNAgent(BaseAgent):
             q_next.add_(rewards)
             actions = tensor(actions).long()
             q = self.network(states)
-            q = q[range_tensor(q.size(0)), actions]
+            q = q[self.batch_indices, actions]
             loss = (q_next - q).pow(2).mul(0.5).mean()
             self.optimizer.zero_grad()
             loss.backward()
@@ -110,3 +115,5 @@ class DQNAgent(BaseAgent):
 
         if self.total_steps % self.config.target_network_update_freq == 0:
             self.target_network.load_state_dict(self.network.state_dict())
+        ts = [t0, t1, t2, time.time()]
+        print(np.diff(ts) / (ts[-1] - ts[0]))

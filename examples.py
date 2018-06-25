@@ -170,10 +170,10 @@ def dqn_pixel_atari(name):
     config.double_q = False
     config.sgd_update_frequency = 4
     # config.cache_len = 1
-    config.cache_len = config.sgd_update_frequency * 2
+    config.cache_len = config.sgd_update_frequency
     config.eval_interval = 0
     config.log_interval = int(1e3)
-    config.max_steps = 4e7
+    config.max_steps = 1e4
     run_steps(DQNAgent(config))
 
 def a2c_pixel_atari(name):
