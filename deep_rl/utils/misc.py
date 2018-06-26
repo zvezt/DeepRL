@@ -58,20 +58,21 @@ def run_steps(agent):
     t0 = time.time()
     while True:
         agent.step()
-        if config.save_interval and not agent.total_steps % config.save_interval:
-            agent.save('data/model-%s-%s-%s.bin' % (agent_name, config.task_name, config.tag))
-        if config.log_interval and not agent.total_steps % config.log_interval and len(agent.episode_rewards):
-            rewards = agent.episode_rewards
+        # if config.save_interval and not agent.total_steps % config.save_interval:
+        #     agent.save('data/model-%s-%s-%s.bin' % (agent_name, config.task_name, config.tag))
+        episode_rewards = agent.episode_rewards
+        if config.log_interval and not agent.total_steps % config.log_interval and len(episode_rewards):
             agent.episode_rewards = []
             config.logger.info('total steps %d, returns %.2f/%.2f/%.2f/%.2f (mean/median/min/max), %.2f steps/s' % (
-                agent.total_steps, np.mean(rewards), np.median(rewards), np.min(rewards), np.max(rewards),
+                agent.total_steps, np.mean(episode_rewards), np.median(episode_rewards),
+                np.min(episode_rewards), np.max(episode_rewards),
                 config.log_interval / (time.time() - t0)))
             t0 = time.time()
-        if config.eval_interval and not agent.total_steps % config.eval_interval:
-            agent.evaluation_episodes()
-        if config.max_steps and agent.total_steps >= config.max_steps:
-            agent.close()
-            break
+        # if config.eval_interval and not agent.total_steps % config.eval_interval:
+        #     agent.evaluation_episodes()
+        # if config.max_steps and agent.total_steps >= config.max_steps:
+        #     agent.close()
+        #     break
 
 def run_iterations(agent):
     random_seed()
