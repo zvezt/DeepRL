@@ -55,27 +55,44 @@ class AsyncReplay(mp.Process):
         self.batch_size = batch_size
         self.__cache_len = 2
         self.start()
+        self.cache = []
 
     def run(self):
         torch.cuda.is_available()
         replay = Replay(self.memory_size, self.batch_size)
-        cache = deque([], maxlen=self.__cache_len)
+        cache = []
 
-        def sample():
+        first = True
+        cur_cache = 0
+
+        def set_up_cache():
             batch_data = replay.sample()
             batch_data = [tensor(x) for x in batch_data]
-            cache.append(batch_data)
+            for i in range(self.__cache_len):
+                cache.append([x.clone() for x in batch_data])
+                for x in cache[i]: x.share_memory_()
+            sample(0)
+            sample(1)
+
+        def sample(cur_cache):
+            batch_data = replay.sample()
+            batch_data = [tensor(x) for x in batch_data]
+            for cache_x, x in zip(cache[cur_cache], batch_data):
+                cache_x.copy_(x)
 
         while True:
             op, data = self.__worker_pipe.recv()
             if op == self.FEED:
                 replay.feed(data)
             elif op == self.SAMPLE:
-                if len(cache) == 0:
-                    sample()
-                self.__worker_pipe.send(cache.popleft())
-                while len(cache) < self.__cache_len:
-                    sample()
+                if first:
+                    set_up_cache()
+                    first = False
+                    self.__worker_pipe.send([cur_cache, cache])
+                else:
+                    self.__worker_pipe.send([cur_cache, None])
+                cur_cache = (cur_cache + 1) % 2
+                sample(cur_cache)
             elif op == self.EXIT:
                 self.__worker_pipe.close()
                 return
@@ -87,7 +104,10 @@ class AsyncReplay(mp.Process):
 
     def sample(self):
         self.__pipe.send([self.SAMPLE, None])
-        return self.__pipe.recv()
+        cache_id, data = self.__pipe.recv()
+        if data is not None:
+            self.cache = data
+        return self.cache[cache_id]
 
     def close(self):
         self.__pipe.send([self.EXIT, None])

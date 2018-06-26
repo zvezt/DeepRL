@@ -19,8 +19,8 @@ class DQNActor(BaseActor):
         if self._state is None:
             self._state = self._task.reset()
         config = self.config
-        with config.lock:
-            q_values = self._network(config.state_normalizer(np.stack([self._state])))
+        # with config.lock:
+        q_values = self._network(config.state_normalizer(np.stack([self._state])))
         q_values = to_np(q_values).flatten()
         if self._total_steps < config.exploration_steps \
                 or np.random.rand() < config.random_action_prob():
@@ -110,10 +110,10 @@ class DQNAgent(BaseAgent):
             self.optimizer.zero_grad()
             loss.backward()
             nn.utils.clip_grad_norm_(self.network.parameters(), self.config.gradient_clip)
-            with config.lock:
-                self.optimizer.step()
+            # with config.lock:
+            self.optimizer.step()
 
         if self.total_steps % self.config.target_network_update_freq == 0:
             self.target_network.load_state_dict(self.network.state_dict())
         ts = [t0, t1, t2, time.time()]
-        # print(np.diff(ts) / (ts[-1] - ts[0]))
+        print(np.diff(ts) / (ts[-1] - ts[0]))

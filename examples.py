@@ -507,10 +507,9 @@ if __name__ == '__main__':
     mkdir('log')
     set_one_thread()
     # select_device(-1)
-    select_device(0)
+    # dqn_cart_pole()
     # IMPALA_dqn_cart_pole()
 
-    # dqn_cart_pole()
     # a2c_cart_pole()
     # categorical_dqn_cart_pole()
     # quantile_regression_dqn_cart_pole()
@@ -519,7 +518,7 @@ if __name__ == '__main__':
     # option_critic_cart_pole()
 
     # game = 'BreakoutNoFrameskip-v4'
-    # select_device(0)
+    select_device(0)
     game = 'PongNoFrameskip-v4'
     dqn_pixel_atari(game)
     # IMPALA_dqn_pixel_atari(game)
