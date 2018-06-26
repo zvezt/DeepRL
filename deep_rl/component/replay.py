@@ -48,6 +48,7 @@ class AsyncReplay(mp.Process):
     FEED = 0
     SAMPLE = 1
     EXIT = 2
+    FEED_BATCH = 3
     def __init__(self, memory_size, batch_size):
         mp.Process.__init__(self)
         self.__pipe, self.__worker_pipe = mp.Pipe()
@@ -61,6 +62,7 @@ class AsyncReplay(mp.Process):
         torch.cuda.is_available()
         replay = Replay(self.memory_size, self.batch_size)
         cache = []
+        pending_batch = None
 
         first = True
         cur_cache = 0
@@ -84,6 +86,12 @@ class AsyncReplay(mp.Process):
             op, data = self.__worker_pipe.recv()
             if op == self.FEED:
                 replay.feed(data)
+            elif op == self.FEED_BATCH:
+                if not first:
+                    pending_batch = data
+                else:
+                    for transition in data:
+                        replay.feed(transition)
             elif op == self.SAMPLE:
                 if first:
                     set_up_cache()
@@ -93,6 +101,10 @@ class AsyncReplay(mp.Process):
                     self.__worker_pipe.send([cur_cache, None])
                 cur_cache = (cur_cache + 1) % 2
                 sample(cur_cache)
+                if pending_batch is not None:
+                    for transition in pending_batch:
+                        replay.feed(transition)
+                    pending_batch = None
             elif op == self.EXIT:
                 self.__worker_pipe.close()
                 return
@@ -101,6 +113,9 @@ class AsyncReplay(mp.Process):
 
     def feed(self, exp):
         self.__pipe.send([self.FEED, exp])
+
+    def feed_batch(self, exps):
+        self.__pipe.send([self.FEED_BATCH, exps])
 
     def sample(self):
         self.__pipe.send([self.SAMPLE, None])

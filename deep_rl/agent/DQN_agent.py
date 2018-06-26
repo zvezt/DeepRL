@@ -19,8 +19,8 @@ class DQNActor(BaseActor):
         if self._state is None:
             self._state = self._task.reset()
         config = self.config
-        # with config.lock:
-        q_values = self._network(config.state_normalizer(np.stack([self._state])))
+        with config.lock:
+            q_values = self._network(config.state_normalizer(np.stack([self._state])))
         q_values = to_np(q_values).flatten()
         if self._total_steps < config.exploration_steps \
                 or np.random.rand() < config.random_action_prob():
@@ -28,7 +28,7 @@ class DQNActor(BaseActor):
         else:
             action = np.argmax(q_values)
         next_state, reward, done, info = self._task.step(action)
-        entry = [self._state, action, reward, next_state, done, info]
+        entry = [self._state, action, reward, next_state, int(done), info]
         self._total_steps += 1
         if done:
             next_state = self._task.reset()
@@ -75,20 +75,22 @@ class DQNAgent(BaseAgent):
     def step(self):
         t0 = time.time()
         config = self.config
-        state, action, reward, next_state, done, _ = self.actor.step()
-        self.episode_reward += reward
-        self.total_steps += 1
-        reward = config.reward_normalizer(reward)
-        if done:
-            self.episode_rewards.append(self.episode_reward)
-            self.episode_reward = 0
+        transitions = self.actor.step()
         t1 = time.time()
-        self.replay.feed([state, action ,reward, next_state, int(done)])
+        experiences = []
+        for i, (state, action, reward, next_state, done, _) in enumerate(transitions):
+            self.episode_reward += reward
+            self.total_steps += 1
+            reward = config.reward_normalizer(reward)
+            if done:
+                self.episode_rewards.append(self.episode_reward)
+                self.episode_reward = 0
+            experiences.append([state, action, reward, next_state, done])
+        t3 = time.time()
+        self.replay.feed_batch(experiences)
         t2 = time.time()
 
-        if self.total_steps > self.config.exploration_steps \
-                and self.total_steps % self.config.sgd_update_frequency == 0:
-            # self.actor.cache()
+        if self.total_steps > self.config.exploration_steps:
             experiences = self.replay.sample()
             states, actions, rewards, next_states, terminals = experiences
             states = self.config.state_normalizer(states)
@@ -110,10 +112,10 @@ class DQNAgent(BaseAgent):
             self.optimizer.zero_grad()
             loss.backward()
             nn.utils.clip_grad_norm_(self.network.parameters(), self.config.gradient_clip)
-            # with config.lock:
-            self.optimizer.step()
+            with config.lock:
+                self.optimizer.step()
 
         if self.total_steps % self.config.target_network_update_freq == 0:
             self.target_network.load_state_dict(self.network.state_dict())
-        ts = [t0, t1, t2, time.time()]
-        print(np.diff(ts) / (ts[-1] - ts[0]))
+        ts = [t0, t1, t3, t2, time.time()]
+        # print(np.diff(ts) / (ts[-1] - ts[0]))

@@ -66,6 +66,7 @@ class BaseActor(mp.Process):
         self._task = None
         self._network = None
         self._total_steps = 0
+        self.__cache_len = 2
 
     def run(self):
         torch.cuda.is_available()
@@ -74,22 +75,24 @@ class BaseActor(mp.Process):
         seed = np.random.randint(0, sys.maxsize)
         self._task = config.task_fn()
         self._task.seed(seed)
-        cache = deque([], maxlen=config.cache_len)
+
+        cache = deque([], maxlen=2)
+        def sample():
+            transitions = []
+            for _ in range(config.sgd_update_frequency):
+                transitions.append(self._transition())
+            cache.append(transitions)
+
         while True:
-            if self.__worker_pipe.poll():
-                op, data = self.__worker_pipe.recv()
-            else:
-                op = self.STEP
+            op, data = self.__worker_pipe.recv()
             if op == self.STEP:
-                # if len(cache) == 0:
-                #     cache.append(self._transition())
-                # self.__worker_pipe.send(cache.popleft())
                 if self._network is None:
                     continue
-                self.__worker_pipe.send(self._transition())
-            # elif op == self.CACHE:
-            #     while len(cache) < config.cache_len:
-            #         cache.append(self._transition())
+                if not len(cache):
+                    sample()
+                    sample()
+                self.__worker_pipe.send(cache.popleft())
+                sample()
             elif op == self.EXIT:
                 close_obj(self._task)
                 self.__worker_pipe.close()
@@ -103,7 +106,7 @@ class BaseActor(mp.Process):
         pass
 
     def step(self):
-        # self.__pipe.send([self.STEP, None])
+        self.__pipe.send([self.STEP, None])
         return self.__pipe.recv()
 
     def close(self):
@@ -112,6 +115,3 @@ class BaseActor(mp.Process):
 
     def set_network(self, net):
         self.__pipe.send([self.NETWORK, net])
-
-    # def cache(self):
-    #     self.__pipe.send([self.CACHE, None])
