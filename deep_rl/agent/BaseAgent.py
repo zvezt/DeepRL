@@ -76,14 +76,20 @@ class BaseActor(mp.Process):
         self._task.seed(seed)
         cache = deque([], maxlen=config.cache_len)
         while True:
-            op, data = self.__worker_pipe.recv()
+            if self.__worker_pipe.poll():
+                op, data = self.__worker_pipe.recv()
+            else:
+                op = self.STEP
             if op == self.STEP:
-                if len(cache) == 0:
-                    cache.append(self._transition())
-                self.__worker_pipe.send(cache.popleft())
-            elif op == self.CACHE:
-                while len(cache) < config.cache_len:
-                    cache.append(self._transition())
+                # if len(cache) == 0:
+                #     cache.append(self._transition())
+                # self.__worker_pipe.send(cache.popleft())
+                if self._network is None:
+                    continue
+                self.__worker_pipe.send(self._transition())
+            # elif op == self.CACHE:
+            #     while len(cache) < config.cache_len:
+            #         cache.append(self._transition())
             elif op == self.EXIT:
                 close_obj(self._task)
                 self.__worker_pipe.close()
@@ -97,7 +103,7 @@ class BaseActor(mp.Process):
         pass
 
     def step(self):
-        self.__pipe.send([self.STEP, None])
+        # self.__pipe.send([self.STEP, None])
         return self.__pipe.recv()
 
     def close(self):
@@ -107,5 +113,5 @@ class BaseActor(mp.Process):
     def set_network(self, net):
         self.__pipe.send([self.NETWORK, net])
 
-    def cache(self):
-        self.__pipe.send([self.CACHE, None])
+    # def cache(self):
+    #     self.__pipe.send([self.CACHE, None])

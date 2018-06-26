@@ -14,7 +14,6 @@ class DQNActor(BaseActor):
     def __init__(self, config):
         BaseActor.__init__(self, config)
         self.config = config
-        self.start()
 
     def _transition(self):
         if self._state is None:
@@ -44,6 +43,7 @@ class DQNAgent(BaseAgent):
 
         self.replay = config.replay_fn()
         self.actor = DQNActor(config)
+        self.actor.start()
 
         self.network = config.network_fn()
         self.network.share_memory()
@@ -88,7 +88,7 @@ class DQNAgent(BaseAgent):
 
         if self.total_steps > self.config.exploration_steps \
                 and self.total_steps % self.config.sgd_update_frequency == 0:
-            self.actor.cache()
+            # self.actor.cache()
             experiences = self.replay.sample()
             states, actions, rewards, next_states, terminals = experiences
             states = self.config.state_normalizer(states)
@@ -116,4 +116,4 @@ class DQNAgent(BaseAgent):
         if self.total_steps % self.config.target_network_update_freq == 0:
             self.target_network.load_state_dict(self.network.state_dict())
         ts = [t0, t1, t2, time.time()]
-        print(np.diff(ts) / (ts[-1] - ts[0]))
+        # print(np.diff(ts) / (ts[-1] - ts[0]))
